@@ -16,6 +16,15 @@ public class Wallet {
     @Column(unique = true, nullable = false)
     private String phone;
 
+    @Column(unique = true)
+    private String code;
+
+    @Column
+    private String email;
+
+    @Column(nullable = false)
+    private String currency = "XOF";
+
     @Column(nullable = false)
     private BigDecimal balance = BigDecimal.ZERO;
 
@@ -30,6 +39,14 @@ public class Wallet {
         this.balance = balance;
     }
 
+    public Wallet(String phone, String code, String email, String currency, BigDecimal balance) {
+        this.phone = phone;
+        this.code = code;
+        this.email = email;
+        this.currency = currency == null ? "XOF" : currency;
+        this.balance = balance;
+    }
+
     public Long getId() {
         return id;
     }
@@ -40,6 +57,22 @@ public class Wallet {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public BigDecimal getBalance() {
