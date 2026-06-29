@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @Service
 public class WalletService {
@@ -34,5 +36,23 @@ public class WalletService {
         Wallet wallet = new Wallet(phone, code, request.getEmail(), request.getCurrency(), balance);
 
         return walletRepository.save(wallet);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Page<Wallet> listWallets(Pageable pageable) {
+        return walletRepository.findAll(pageable);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Wallet getWalletByPhone(String phone) {
+        return walletRepository.findByPhone(phone)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Wallet with phone " + phone + " not found"));
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public BigDecimal getBalanceByPhone(String phone) {
+        Wallet w = walletRepository.findByPhone(phone)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Wallet with phone " + phone + " not found"));
+        return w.getBalance();
     }
 }

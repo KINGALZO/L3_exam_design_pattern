@@ -40,4 +40,29 @@ public class WalletController {
             return ResponseEntity.status(409).body(ex.getMessage());
         }
     }
+
+    // Paginated list of wallets
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<org.springframework.data.domain.Page<com.kingalzo.l3exam.domain.Wallet>> listWallets(org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<com.kingalzo.l3exam.domain.Wallet> page = walletService.listWallets(pageable);
+        return ResponseEntity.ok(page);
+    }
+
+    // Get wallet by phone
+    @org.springframework.web.bind.annotation.GetMapping("/{phoneNumber}")
+    public ResponseEntity<?> getWallet(@org.springframework.web.bind.annotation.PathVariable String phoneNumber) {
+        try {
+            com.kingalzo.l3exam.domain.Wallet wallet = walletService.getWalletByPhone(phoneNumber);
+            return ResponseEntity.ok(wallet);
+        } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
+            return ResponseEntity.status(404).body(ex.getMessage());
+        }
+    }
+
+    // Get only the balance
+    @org.springframework.web.bind.annotation.GetMapping("/{phoneNumber}/balance")
+    public ResponseEntity<com.kingalzo.l3exam.dto.BalanceDto> getBalance(@org.springframework.web.bind.annotation.PathVariable String phoneNumber) {
+        java.math.BigDecimal balance = walletService.getBalanceByPhone(phoneNumber);
+        return ResponseEntity.ok(new com.kingalzo.l3exam.dto.BalanceDto(balance));
+    }
 }
