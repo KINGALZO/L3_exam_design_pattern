@@ -79,4 +79,30 @@ public class WalletController {
             return ResponseEntity.status(400).body(ex.getMessage());
         }
     }
+
+    // Withdrawal endpoint
+    @PostMapping("/withdraw")
+    public ResponseEntity<?> withdraw(@RequestBody @Valid com.kingalzo.l3exam.dto.WithdrawalRequest request) {
+        try {
+            com.kingalzo.l3exam.domain.Wallet updated = walletService.withdraw(request.getPhoneNumber(), request.getAmount());
+            return ResponseEntity.ok(updated);
+        } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
+            return ResponseEntity.status(404).body(ex.getMessage());
+        } catch (com.kingalzo.l3exam.exception.SoldeInsuffisantException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
+        }
+    }
+
+    // Transfer endpoint
+    @PostMapping("/transfer")
+    public ResponseEntity<?> transfer(@RequestBody @Valid com.kingalzo.l3exam.dto.TransferRequest request) {
+        try {
+            walletService.transfer(request.getSenderPhone(), request.getReceiverPhone(), request.getAmount());
+            return ResponseEntity.status(200).body("Transfer successful");
+        } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
+            return ResponseEntity.status(404).body(ex.getMessage());
+        } catch (com.kingalzo.l3exam.exception.SoldeInsuffisantException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
+        }
+    }
 }

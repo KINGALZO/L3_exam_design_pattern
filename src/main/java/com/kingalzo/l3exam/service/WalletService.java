@@ -1,6 +1,7 @@
 package com.kingalzo.l3exam.service;
 
 import com.kingalzo.l3exam.domain.Wallet;
+import com.kingalzo.l3exam.domain.Transaction;
 import com.kingalzo.l3exam.dto.WalletCreationRequest;
 import com.kingalzo.l3exam.exception.WalletAlreadyExistsException;
 import com.kingalzo.l3exam.repository.WalletRepository;
@@ -75,5 +76,67 @@ public class WalletService {
         
         strategy.execute(wallet, amount);
         return walletRepository.save(wallet);
+    }
+
+    @Transactional
+    public Wallet withdraw(String phoneNumber, double amount) {
+        Wallet wallet = walletRepository.findByPhone(phoneNumber)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Wallet with phone " + phoneNumber + " not found"));
+
+        // Calculate withdrawal fee: 1% of amount, capped at 5000 CFA
+        BigDecimal amountBD = BigDecimal.valueOf(amount).setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal feeAmount = amountBD.multiply(BigDecimal.valueOf(0.01)).setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal maxFee = BigDecimal.valueOf(5000).setScale(2, BigDecimal.ROUND_HALF_UP);
+        if (feeAmount.compareTo(maxFee) > 0) {
+            feeAmount = maxFee;
+        }
+
+        BigDecimal totalDebit = amountBD.add(feeAmount);
+
+        // Verify sufficient balance
+        if (wallet.getBalance().compareTo(totalDebit) < 0) {
+            throw new com.kingalzo.l3exam.exception.SoldeInsuffisantException(
+                    "Insufficient balance. Available: " + wallet.getBalance() + " CFA, Required: " + totalDebit + " CFA");
+        }
+
+        // Debit the wallet
+        wallet.setBalance(wallet.getBalance().subtract(totalDebit));
+
+        // Record withdrawal transaction
+        Transaction transaction = new Transaction(amountBD, Transaction.TransactionType.DEBIT);
+        wallet.addTransaction(transaction);
+
+        return walletRepository.save(wallet);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void transfer(String senderPhone, String receiverPhone, double amount) {
+        Wallet sender = walletRepository.findByPhone(senderPhone)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Sender wallet with phone " + senderPhone + " not found"));
+
+        Wallet receiver = walletRepository.findByPhone(receiverPhone)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Receiver wallet with phone " + receiverPhone + " not found"));
+
+        BigDecimal amountBD = BigDecimal.valueOf(amount).setScale(2, BigDecimal.ROUND_HALF_UP);
+
+        // Verify sender has sufficient balance
+        if (sender.getBalance().compareTo(amountBD) < 0) {
+            throw new com.kingalzo.l3exam.exception.SoldeInsuffisantException(
+                    "Insufficient balance. Available: " + sender.getBalance() + " CFA, Required: " + amountBD + " CFA");
+        }
+
+        // Debit sender
+        sender.setBalance(sender.getBalance().subtract(amountBD));
+        Transaction senderTransaction = new Transaction(amountBD, Transaction.TransactionType.DEBIT);
+        sender.addTransaction(senderTransaction);
+
+        // Credit receiver
+        receiver.setBalance(receiver.getBalance().add(amountBD));
+        Transaction receiverTransaction = new Transaction(amountBD, Transaction.TransactionType.CREDIT);
+        receiver.addTransaction(receiverTransaction);
+
+        // Save both wallets (atomically due to @Transactional)
+        walletRepository.save(sender);
+        walletRepository.save(receiver);
     }
 }
