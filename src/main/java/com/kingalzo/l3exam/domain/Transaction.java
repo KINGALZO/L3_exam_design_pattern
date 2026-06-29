@@ -8,7 +8,7 @@ import java.time.Instant;
 @Table(name = "transactions")
 public class Transaction {
 
-    public enum TransactionType { CREDIT, DEBIT }
+    public enum TransactionType { CREDIT, DEBIT, PAYMENT }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

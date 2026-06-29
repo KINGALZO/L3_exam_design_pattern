@@ -3,6 +3,8 @@ package com.kingalzo.l3exam.controller;
 import com.kingalzo.l3exam.service.WalletSeederService;
 import com.kingalzo.l3exam.service.WalletService;
 import com.kingalzo.l3exam.dto.WalletCreationRequest;
+import com.kingalzo.l3exam.dto.BillPaymentRequest;
+import com.kingalzo.l3exam.dto.MultipleBillPaymentRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.http.ResponseEntity;
@@ -101,6 +103,42 @@ public class WalletController {
             return ResponseEntity.status(200).body("Transfer successful");
         } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
             return ResponseEntity.status(404).body(ex.getMessage());
+        } catch (com.kingalzo.l3exam.exception.SoldeInsuffisantException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
+        }
+    }
+
+    // Single bill payment endpoint
+    @PostMapping("/pay")
+    public ResponseEntity<?> paySingleBill(@RequestBody @Valid BillPaymentRequest request) {
+        try {
+            com.kingalzo.l3exam.domain.Wallet updated = walletService.paySingleBill(
+                    request.getPhoneNumber(), 
+                    request.getServiceName(), 
+                    request.getAmount());
+            return ResponseEntity.ok(updated);
+        } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
+            return ResponseEntity.status(404).body(ex.getMessage());
+        } catch (com.kingalzo.l3exam.exception.PaymentServiceNotFoundException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
+        } catch (com.kingalzo.l3exam.exception.SoldeInsuffisantException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
+        }
+    }
+
+    // Multiple bills payment endpoint
+    @PostMapping("/pay-factures")
+    public ResponseEntity<?> payMultipleBills(@RequestBody @Valid MultipleBillPaymentRequest request) {
+        try {
+            com.kingalzo.l3exam.domain.Wallet updated = walletService.payMultipleBills(
+                    request.getPhoneNumber(),
+                    request.getServiceName(),
+                    request.getBillReferences());
+            return ResponseEntity.ok(updated);
+        } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
+            return ResponseEntity.status(404).body(ex.getMessage());
+        } catch (com.kingalzo.l3exam.exception.PaymentServiceNotFoundException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
         } catch (com.kingalzo.l3exam.exception.SoldeInsuffisantException ex) {
             return ResponseEntity.status(400).body(ex.getMessage());
         }

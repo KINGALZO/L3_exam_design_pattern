@@ -4,8 +4,10 @@ import com.kingalzo.l3exam.domain.Wallet;
 import com.kingalzo.l3exam.domain.Transaction;
 import com.kingalzo.l3exam.dto.WalletCreationRequest;
 import com.kingalzo.l3exam.exception.WalletAlreadyExistsException;
+import com.kingalzo.l3exam.exception.PaymentServiceNotFoundException;
 import com.kingalzo.l3exam.repository.WalletRepository;
 import com.kingalzo.l3exam.strategy.DepositStrategy;
+import com.kingalzo.l3exam.strategy.BillPaymentStrategy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,11 +23,14 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final Map<String, DepositStrategy> strategyMap;
+    private final Map<String, BillPaymentStrategy> billPaymentStrategyMap;
 
-    public WalletService(WalletRepository walletRepository, List<DepositStrategy> strategies) {
+    public WalletService(WalletRepository walletRepository, List<DepositStrategy> strategies, List<BillPaymentStrategy> billPaymentStrategies) {
         this.walletRepository = walletRepository;
         this.strategyMap = strategies.stream()
                 .collect(Collectors.toMap(DepositStrategy::getStrategyName, strategy -> strategy));
+        this.billPaymentStrategyMap = billPaymentStrategies.stream()
+                .collect(Collectors.toMap(BillPaymentStrategy::getServiceName, strategy -> strategy));
     }
 
     @Transactional
@@ -139,4 +144,57 @@ public class WalletService {
         walletRepository.save(sender);
         walletRepository.save(receiver);
     }
+
+    @Transactional
+    public Wallet paySingleBill(String phoneNumber, String serviceName, double amount) {
+        Wallet wallet = walletRepository.findByPhone(phoneNumber)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Wallet with phone " + phoneNumber + " not found"));
+
+        BillPaymentStrategy strategy = billPaymentStrategyMap.get(serviceName.toUpperCase());
+        if (strategy == null) {
+            throw new PaymentServiceNotFoundException("Payment service '" + serviceName + "' not found. Available services: ISM, WOYAFAL");
+        }
+
+        // Verify sufficient balance before payment
+        BigDecimal amountBD = BigDecimal.valueOf(amount).setScale(2, BigDecimal.ROUND_HALF_UP);
+        if (wallet.getBalance().compareTo(amountBD) < 0) {
+            throw new com.kingalzo.l3exam.exception.SoldeInsuffisantException(
+                    "Insufficient balance. Available: " + wallet.getBalance() + " CFA, Required: " + amountBD + " CFA");
+        }
+
+        strategy.payBill(wallet, amount);
+        return walletRepository.save(wallet);
+    }
+
+    @Transactional
+    public Wallet payMultipleBills(String phoneNumber, String serviceName, List<String> billReferences) {
+        Wallet wallet = walletRepository.findByPhone(phoneNumber)
+                .orElseThrow(() -> new com.kingalzo.l3exam.exception.WalletNotFoundException("Wallet with phone " + phoneNumber + " not found"));
+
+        BillPaymentStrategy strategy = billPaymentStrategyMap.get(serviceName.toUpperCase());
+        if (strategy == null) {
+            throw new PaymentServiceNotFoundException("Payment service '" + serviceName + "' not found. Available services: ISM, WOYAFAL");
+        }
+
+        // Estimate total amount based on service (for balance check)
+        double estimatedTotal = estimateTotalForService(serviceName, billReferences.size());
+        BigDecimal estimatedTotalBD = BigDecimal.valueOf(estimatedTotal).setScale(2, BigDecimal.ROUND_HALF_UP);
+        
+        if (wallet.getBalance().compareTo(estimatedTotalBD) < 0) {
+            throw new com.kingalzo.l3exam.exception.SoldeInsuffisantException(
+                    "Insufficient balance. Available: " + wallet.getBalance() + " CFA, Required: " + estimatedTotalBD + " CFA");
+        }
+
+        strategy.payMultipleBills(wallet, billReferences);
+        return walletRepository.save(wallet);
+    }
+
+    private double estimateTotalForService(String serviceName, int billCount) {
+        return switch (serviceName.toUpperCase()) {
+            case "ISM" -> 5000.0 * billCount;
+            case "WOYAFAL" -> 3000.0 * billCount;
+            default -> 0.0;
+        };
+    }
 }
+
