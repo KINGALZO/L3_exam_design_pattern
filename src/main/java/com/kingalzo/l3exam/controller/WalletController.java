@@ -65,4 +65,18 @@ public class WalletController {
         java.math.BigDecimal balance = walletService.getBalanceByPhone(phoneNumber);
         return ResponseEntity.ok(new com.kingalzo.l3exam.dto.BalanceDto(balance));
     }
+
+    // Deposit endpoint with strategy pattern
+    @PostMapping("/{id}/deposit")
+    public ResponseEntity<?> deposit(@org.springframework.web.bind.annotation.PathVariable Long id,
+                                     @RequestBody @Valid com.kingalzo.l3exam.dto.DepositRequest request) {
+        try {
+            com.kingalzo.l3exam.domain.Wallet updated = walletService.executeDeposit(id, request.getPaymentMethod(), request.getAmount());
+            return ResponseEntity.ok(updated);
+        } catch (com.kingalzo.l3exam.exception.WalletNotFoundException ex) {
+            return ResponseEntity.status(404).body(ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(400).body(ex.getMessage());
+        }
+    }
 }
